@@ -2,8 +2,6 @@ import { ChatSession, GenerativeModel, GoogleGenerativeAI } from '@google/genera
 import { Inject, Injectable } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import { PromptDTO } from './text-generate.dto';
-import { base64Str } from "./base64Str";
-import { Writable } from 'stream';
 
 @Injectable()
 export class TextGenerateService {
@@ -60,7 +58,7 @@ export class TextGenerateService {
 
         const imageParts = {
             inlineData: {
-                data: base64Str, mimeType: "image/jpg"
+                data: promptObj.imgPrompt, mimeType: "image/jpg"
             }
         };
         this.chat = this.model.startChat({ history: this.chatHistory, generationConfig: { maxOutputTokens: null }, }); //sending chat history
