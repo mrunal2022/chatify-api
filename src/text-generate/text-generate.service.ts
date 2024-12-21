@@ -42,6 +42,25 @@ export class TextGenerateService {
     async initializeChatting(promptObj: PromptDTO) {
         this.initializeModel();
         this.chatHistory.chatId = promptObj.chatId;
+        let chatById:any= await this.getChatById(promptObj.chatId);
+
+        chatById.messages.forEach(element => {
+            const filteredParts = element.parts.map(part => {
+                console.log(part);
+                const { _id, ...rest } = part; // Exclude the 'id' key
+                return rest; 
+            });
+
+            // Push the filtered data to chatConversation
+            this.chatHistory.chatConversation.push({
+                role: element.role,
+                parts: filteredParts
+            });
+        });
+
+        if (!this.chat) {
+            this.chat = this.model.startChat({ history: this.chatHistory.chatConversation, generationConfig: { maxOutputTokens: null }, });
+        }
 
         if (promptObj.imgPrompt) {
             return await this.generateFromMultimodal(promptObj);
@@ -53,7 +72,6 @@ export class TextGenerateService {
 
 
     async generateFromText(promptObj: PromptDTO) {
-        this.chat = this.model.startChat({ history: this.chatHistory.chatConversation, generationConfig: { maxOutputTokens: null }, });
         const result = await this.chat.sendMessage(promptObj.prompt);
         const response = await result.response;
 
@@ -61,7 +79,6 @@ export class TextGenerateService {
             text: response.text()
         }
         this.updateMessages(promptObj.chatId, promptObj.prompt, promptObj.imgPrompt, generatedText.text);
-        console.log(generatedText);
         return generatedText;
     }
 
@@ -72,7 +89,7 @@ export class TextGenerateService {
                 data: promptObj.imgPrompt, mimeType: "image/jpg"
             }
         };
-        this.chat = this.model.startChat({ history: this.chatHistory.chatConversation, generationConfig: { maxOutputTokens: null }, }); //sending chat history
+        // this.chat = this.model.startChat({ history: this.chatHistory.chatConversation, generationConfig: { maxOutputTokens: null }, }); //sending chat history
         const result = await this.model.generateContent([promptObj.prompt, imageParts]);
         const response = await result.response;
         this.chatHistory.chatConversation.push({ role: "user", parts: [{ text: promptObj.prompt }, { text: imageParts.inlineData.data }] });
@@ -84,47 +101,48 @@ export class TextGenerateService {
         return generatedText;
     }
 
-    async updateMessages(chatId: string, textPrompt: string, imgPrompt:string, generatedText: string) {
+    async updateMessages(chatId: string, textPrompt: string, imgPrompt: string, generatedText: string) {
         return await this.conversationModel.findOneAndUpdate(
-          { chatId }, 
-          {
-            $push: {
-              messages: {
-                $each: [
-                  {
-                    role: "user",
-                    parts: [{ text: textPrompt }, ...(imgPrompt ? [{ text: imgPrompt }] : [])] //if img prompt exists then add in parts
+            { chatId },
+            {
+                $push: {
+                    messages: {
+                        $each: [
+                            {
+                                role: "user",
+                                parts: [{ text: textPrompt }, ...(imgPrompt ? [{ text: imgPrompt }] : [])] //if img prompt exists then add in parts
+                            },
+                            {
+                                role: "model",
+                                parts: [{ text: generatedText }]
+                            }
+                        ]
+                    }
                 },
-                  {
-                    role: "model",
-                    parts: [{ text: generatedText }]
-                  }
-                ]
-              }
+                $set: { updatedAt: new Date() } // Update the timestamp
             },
-            $set: { updatedAt: new Date() } // Update the timestamp
-          },
-          { new: true } // Return the updated document
+            { new: true } // Return the updated document
         ).exec();
-      }
-      
-
-    async getChatHistoryList(): Promise<ConversationHistory[]> {
-        return await this.conversationModel.find().exec() // Fetch all conversations list from MongoDB   
     }
 
-    async getChatById(chatId: string): Promise<ConversationHistory> {
-        return await this.conversationModel.findOne({ chatId }).exec();
+
+    async getChatHistoryList(): Promise<any> {
+        return await this.conversationModel.find().lean().exec() // Fetch all conversations list from MongoDB   
     }
 
-     //call this func only when we reload page
-     async getChatHistory() {
+    async getChatById(chatId: string): Promise<any> {
+        let chat: any = await this.conversationModel.findOne({ chatId }).lean().exec();
+        return chat;
+    }
+
+    //call this func only when we reload page
+    async getChatHistory() {
         const chatHistory = await this.chat.getHistory();
         return chatHistory;
     }
 
 }
- 
+
 
 
 
