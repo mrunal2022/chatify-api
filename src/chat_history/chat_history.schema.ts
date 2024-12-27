@@ -3,6 +3,7 @@ import { Schema, Document } from "mongoose";
 export const ConversationHistorySchema = new Schema(
     {
       userId: { type: String, required: true },
+      chatId: { type: String, required: true , unique: true },
       title: { type: String, required: true },
       messages: [
         {
@@ -18,6 +19,7 @@ export const ConversationHistorySchema = new Schema(
   
   export interface ConversationHistory extends Document {
     userId: string;
+    chatId:string;
     title: string;
     messages: {
       role: 'user' | 'model';

@@ -42,34 +42,48 @@ export class TextGenerateService {
     async initializeChatting(promptObj: PromptDTO) {
         this.initializeModel();
         this.chatHistory.chatId = promptObj.chatId;
-        let chatById:any= await this.getChatById(promptObj.chatId);
 
-        chatById.messages.forEach(element => {
-            const filteredParts = element.parts.map(part => {
-                console.log(part);
-                const { _id, ...rest } = part; // Exclude the 'id' key
-                return rest; 
+        //fetch chat history for a particular chatId from DB and then pass it to the history parameter of the model so that it gets trained on the history
+        let chatById: any = await this.getChatById(promptObj.chatId);
+        if (chatById) {
+            chatById.messages.forEach(element => {
+                const filteredParts = element.parts.map(part => {
+                    const { _id, ...rest } = part; // Exclude the 'id' key
+                    return rest;
+                });
+
+                // Push the filtered data to chatConversation
+                this.chatHistory.chatConversation.push({
+                    role: element.role,
+                    parts: filteredParts
+                });
             });
+        } else {
+            //TODO: implement generation of title using langchain & gemini api
+            try {
+                await this.conversationModel.create({
+                    chatId: promptObj.chatId,
+                    userId: "testUserId",
+                    title: "Test Title",
+                    messages: [],
+                    createdAt: new Date(),
+                    updatedAt: new Date(),
+                });
+            } catch (error) {
+                console.error('Error during create:', error);
+            }
 
-            // Push the filtered data to chatConversation
-            this.chatHistory.chatConversation.push({
-                role: element.role,
-                parts: filteredParts
-            });
-        });
-
+        }
         if (!this.chat) {
             this.chat = this.model.startChat({ history: this.chatHistory.chatConversation, generationConfig: { maxOutputTokens: null }, });
         }
-
-        if (promptObj.imgPrompt) {
+        if (promptObj?.imgPrompt) {
             return await this.generateFromMultimodal(promptObj);
         }
         else {
             return await this.generateFromText(promptObj);
         }
     }
-
 
     async generateFromText(promptObj: PromptDTO) {
         const result = await this.chat.sendMessage(promptObj.prompt);
@@ -89,7 +103,6 @@ export class TextGenerateService {
                 data: promptObj.imgPrompt, mimeType: "image/jpg"
             }
         };
-        // this.chat = this.model.startChat({ history: this.chatHistory.chatConversation, generationConfig: { maxOutputTokens: null }, }); //sending chat history
         const result = await this.model.generateContent([promptObj.prompt, imageParts]);
         const response = await result.response;
         this.chatHistory.chatConversation.push({ role: "user", parts: [{ text: promptObj.prompt }, { text: imageParts.inlineData.data }] });
