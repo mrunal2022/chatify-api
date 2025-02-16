@@ -4,11 +4,12 @@ import { AppController } from './app.controller';
 import { AppService } from './app.service';
 import { TextGenerateController } from './text-generate/text-generate.controller';
 import { TextGenerateService } from './text-generate/text-generate.service';
-import { MongooseModule } from '@nestjs/mongoose/dist/mongoose.module';
+import { MongooseModule } from '@nestjs/mongoose';
 import { ConversationHistorySchema } from './chat_history/chat_history.schema';
 
 @Module({
-  imports: [ ConfigModule.forRoot(),
+  imports: [
+    ConfigModule.forRoot(), // Load .env variables
     MongooseModule.forRootAsync({
       imports: [ConfigModule],
       inject: [ConfigService],
@@ -17,8 +18,8 @@ import { ConversationHistorySchema } from './chat_history/chat_history.schema';
       }),
     }),
     MongooseModule.forFeature([{ name: 'ConversationHistory', schema: ConversationHistorySchema }]),
-  ConfigModule],
+  ],
   controllers: [AppController, TextGenerateController],
   providers: [AppService, TextGenerateService],
 })
-export class AppModule { }
+export class AppModule {}
