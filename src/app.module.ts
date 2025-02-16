@@ -15,10 +15,6 @@ import { ConversationHistorySchema } from './chat_history/chat_history.schema';
       inject: [ConfigService],
       useFactory: (configService: ConfigService) => ({
         uri: configService.get<string>('MONGO_URI'),
-        useNewUrlParser: true,
-        useUnifiedTopology: true,
-        useCreateIndex: true, // Prevents indexing warnings
-        useFindAndModify: false, // Prevents deprecation warnings
       }),
     }),
     MongooseModule.forFeature([{ name: 'ConversationHistory', schema: ConversationHistorySchema }]),
