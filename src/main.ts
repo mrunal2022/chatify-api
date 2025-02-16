@@ -12,7 +12,7 @@ async function bootstrap() {
   app.setGlobalPrefix(APP_ROOT);
   const cors = require('cors');
   const corsOptions = {
-    origin: ['http://localhost:4200','https://chatify-api-1.onrender.com'],
+    origin: ['http://localhost:4200','https://chatify-ui.onrender.com'],
     credentials: true,           
     optionSuccessStatus: 200
   }
