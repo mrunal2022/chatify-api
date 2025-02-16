@@ -24,13 +24,6 @@ async function bootstrap() {
   app.use(express.json({ limit: '10mb' })); // Increase JSON payload limit to 10MB
   app.use(express.urlencoded({ limit: '10mb', extended: true })); // Increase URL-encoded payload limit to 10MB
 
-  // Serve Angular static files from the `dist` folder
-  app.use(express.static(path.join(__dirname, '..', 'dist', 'chatify-ui')));
-
-  // Redirect unknown routes to Angular's `index.html`
-  app.use('*', (_req, res) => {
-    res.sendFile(path.join(__dirname, '..', 'dist', 'chatify-ui', 'index.html'));
-  });
 
   // Swagger Documentation
   const config = new DocumentBuilder()
