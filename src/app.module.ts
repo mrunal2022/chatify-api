@@ -1,5 +1,5 @@
 import { Module } from '@nestjs/common';
-import { ConfigModule } from '@nestjs/config';
+import { ConfigModule, ConfigService } from '@nestjs/config';
 import { AppController } from './app.controller';
 import { AppService } from './app.service';
 import { TextGenerateController } from './text-generate/text-generate.controller';
@@ -8,8 +8,15 @@ import { MongooseModule } from '@nestjs/mongoose/dist/mongoose.module';
 import { ConversationHistorySchema } from './chat_history/chat_history.schema';
 
 @Module({
-  imports: [MongooseModule.forRoot('mongodb://localhost:27017/chatify'),
-  MongooseModule.forFeature([{ name: 'ConversationHistory', schema: ConversationHistorySchema }]),
+  imports: [ ConfigModule.forRoot(),
+    MongooseModule.forRootAsync({
+      imports: [ConfigModule],
+      inject: [ConfigService],
+      useFactory: (configService: ConfigService) => ({
+        uri: configService.get<string>('MONGO_URI'),
+      }),
+    }),
+    MongooseModule.forFeature([{ name: 'ConversationHistory', schema: ConversationHistorySchema }]),
   ConfigModule],
   controllers: [AppController, TextGenerateController],
   providers: [AppService, TextGenerateService],
