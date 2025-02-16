@@ -4,6 +4,9 @@ export class PromptDTO {
     @ApiProperty({ required: true })
     prompt: string;
 
+    @ApiProperty({ required: true })
+    chatId: string;
+
     @ApiProperty({ required: false })
     imgPrompt: string; 
 }
