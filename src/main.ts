@@ -1,14 +1,12 @@
-/* eslint-disable prettier/prettier */
 import { NestFactory } from '@nestjs/core';
 import { AppModule } from './app.module';
 import { DocumentBuilder, SwaggerModule } from '@nestjs/swagger';
 import * as dotenv from 'dotenv';
 import { APP_ROOT } from './text-generate/text-generate.constant';
 import * as express from 'express';
-import * as path from 'path';
 
 async function bootstrap() {
-  dotenv.config(); // Load environment variables at the beginning
+  dotenv.config();
   const app = await NestFactory.create(AppModule);
 
   app.setGlobalPrefix(APP_ROOT);
@@ -23,7 +21,6 @@ async function bootstrap() {
 
   app.use(express.json({ limit: '10mb' })); // Increase JSON payload limit to 10MB
   app.use(express.urlencoded({ limit: '10mb', extended: true })); // Increase URL-encoded payload limit to 10MB
-
 
   // Swagger Documentation
   const config = new DocumentBuilder()

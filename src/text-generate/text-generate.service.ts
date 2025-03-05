@@ -5,7 +5,7 @@ import { InjectModel } from '@nestjs/mongoose';
 import { Model } from 'mongoose';
 import { ConversationHistory } from 'src/chat_history/chat_history.schema';
 import { PromptDTO } from './text-generate.dto';
-
+import { PromptTemplate } from "@langchain/core/prompts";
 @Injectable()
 export class TextGenerateService {
     model: GenerativeModel;
@@ -45,6 +45,7 @@ export class TextGenerateService {
 
         //fetch chat history for a particular chatId from DB and then pass it to the history parameter of the model so that it gets trained on the history
         let chatById: any = await this.getChatById(promptObj.chatId);
+        this.getTitleForConversation(promptObj)
         if (chatById) {
             chatById.messages.forEach(element => {
                 const filteredParts = element.parts.map(part => {
@@ -59,12 +60,12 @@ export class TextGenerateService {
                 });
             });
         } else {
-            //TODO: implement generation of title using langchain & gemini api
             try {
+                const title: string = await this.getTitleForConversation(promptObj);
                 await this.conversationModel.create({
                     chatId: promptObj.chatId,
                     userId: "testUserId",
-                    title: "Test Title",
+                    title: title,
                     messages: [],
                     createdAt: new Date(),
                     updatedAt: new Date(),
@@ -72,7 +73,6 @@ export class TextGenerateService {
             } catch (error) {
                 console.error('Error during create:', error);
             }
-
         }
         if (!this.chat) {
             this.chat = this.model.startChat({ history: this.chatHistory.chatConversation, generationConfig: { maxOutputTokens: null }, });
@@ -114,6 +114,24 @@ export class TextGenerateService {
         return generatedText;
     }
 
+    async getTitleForConversation(promptObj: PromptDTO) {
+        const promptTemplate: PromptTemplate = PromptTemplate.fromTemplate(
+            `Summarize the given text strictly in not more than 3-4 words: {prompt}`
+        );
+        const formattedPrompt = await promptTemplate.format({
+            prompt: promptObj.prompt
+        });
+        this.initializeModel();
+        this.chat = this.model.startChat({ history: [], generationConfig: { maxOutputTokens: null }, });
+        const result = await this.chat.sendMessage(formattedPrompt);
+        const response = await result.response;
+
+        let generatedText = {
+            text: await response.text()
+        };
+        return generatedText.text;
+    }
+
     async updateMessages(chatId: string, textPrompt: string, imgPrompt: string, generatedText: string) {
         return await this.conversationModel.findOneAndUpdate(
             { chatId },
@@ -140,8 +158,8 @@ export class TextGenerateService {
 
 
     async getChatHistoryList(): Promise<any> {
-        return await this.conversationModel.find().lean().exec() // Fetch all conversations list from MongoDB   
-    }
+        return await this.conversationModel.find().sort({ createdAt: -1 }).lean().exec();
+}
 
     async getChatById(chatId: string): Promise<any> {
         let chat: any = await this.conversationModel.findOne({ chatId }).lean().exec();
