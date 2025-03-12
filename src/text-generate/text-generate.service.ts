@@ -45,6 +45,7 @@ export class TextGenerateService {
 
         //fetch chat history for a particular chatId from DB and then pass it to the history parameter of the model so that it gets trained on the history
         let chatById: any = await this.getChatById(promptObj.chatId);
+        this.chatHistory.chatConversation = [];
         this.getTitleForConversation(promptObj)
         if (chatById) {
             chatById.messages.forEach(element => {
@@ -74,9 +75,7 @@ export class TextGenerateService {
                 console.error('Error during create:', error);
             }
         }
-        if (!this.chat) {
-            this.chat = this.model.startChat({ history: this.chatHistory.chatConversation, generationConfig: { maxOutputTokens: null }, });
-        }
+        this.chat = this.model.startChat({ history: this.chatHistory.chatConversation, generationConfig: { maxOutputTokens: null }, });
         if (promptObj?.imgPrompt) {
             return await this.generateFromMultimodal(promptObj);
         }
@@ -159,7 +158,7 @@ export class TextGenerateService {
 
     async getChatHistoryList(): Promise<any> {
         return await this.conversationModel.find().sort({ createdAt: -1 }).lean().exec();
-}
+    }
 
     async getChatById(chatId: string): Promise<any> {
         let chat: any = await this.conversationModel.findOne({ chatId }).lean().exec();
