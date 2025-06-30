@@ -65,7 +65,7 @@ export class TextGenerateService {
                 const title: string = await this.getTitleForConversation(promptObj);
                 await this.conversationModel.create({
                     chatId: promptObj.chatId,
-                    userId: "testUserId",
+                    userId: promptObj.userId,
                     title: title,
                     messages: [],
                     createdAt: new Date(),
