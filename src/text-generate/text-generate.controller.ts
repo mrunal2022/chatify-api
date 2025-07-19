@@ -2,6 +2,7 @@ import { BadRequestException, Body, Controller, Get, Header, Post, Query } from 
 import { TextGenerateService } from './text-generate.service';
 import { PromptDTO } from './text-generate.dto';
 import { ApiTags, ApiResponse, ApiBody, ApiQuery } from '@nestjs/swagger';
+import { DecodedToken } from 'src/user.decorator';
 
 
 @Controller()
@@ -21,9 +22,9 @@ export class TextGenerateController {
 		type: PromptDTO,
 		required: true,
 	})
-	async generateText(@Body() prompt: PromptDTO): Promise<any> {
+	async generateText(@Body() prompt: PromptDTO, @DecodedToken() tokenObj: any): Promise<any> {
 		try {
-			return await this.textGenerateService.initializeChatting(prompt);
+			return await this.textGenerateService.initializeChatting(prompt, tokenObj);
 		} catch (error) {
 			throw new BadRequestException(error.detail);
 		}
@@ -35,9 +36,9 @@ export class TextGenerateController {
 	@ApiResponse({ status: 200, description: 'Data Fetched Successfully' })
 	@ApiResponse({ status: 400, description: 'Bad Request' })
 	@ApiResponse({ status: 401, description: 'Unauthorized' })
-	async getChatHistoryList(): Promise<any> {
+	async getChatHistoryList( @DecodedToken() tokenObj: any): Promise<any> {
 		try {
-			return await this.textGenerateService.getChatHistoryList();
+			return await this.textGenerateService.getChatHistoryList(tokenObj);
 		} catch (error) {
 			throw new BadRequestException(error.detail);
 		}

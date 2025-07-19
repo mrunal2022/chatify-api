@@ -39,7 +39,7 @@ export class TextGenerateService {
         this.model = genAI.getGenerativeModel({ model: "gemini-1.5-flash" });
     }
 
-    async initializeChatting(promptObj: PromptDTO) {
+    async initializeChatting(promptObj: PromptDTO, tokenObj:any) {
         this.initializeModel();
         this.chatHistory.chatId = promptObj.chatId;
 
@@ -65,7 +65,7 @@ export class TextGenerateService {
                 const title: string = await this.getTitleForConversation(promptObj);
                 await this.conversationModel.create({
                     chatId: promptObj.chatId,
-                    userId: promptObj.userId,
+                    userId: tokenObj.email,
                     title: title,
                     messages: [],
                     createdAt: new Date(),
@@ -156,8 +156,8 @@ export class TextGenerateService {
     }
 
 
-    async getChatHistoryList(): Promise<any> {
-        return await this.conversationModel.find().sort({ createdAt: -1 }).lean().exec();
+    async getChatHistoryList(tokenObj:any): Promise<any> {
+        return (await this.conversationModel.find({ userId: tokenObj.email }).sort({ createdAt: -1 }).lean().exec());
     }
 
     async getChatById(chatId: string): Promise<any> {
