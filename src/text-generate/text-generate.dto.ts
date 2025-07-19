@@ -9,7 +9,4 @@ export class PromptDTO {
 
     @ApiProperty({ required: false })
     imgPrompt: string; 
-
-    @ApiProperty({ required: true })
-    userId: string;
 }
