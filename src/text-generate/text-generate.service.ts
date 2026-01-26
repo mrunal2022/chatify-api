@@ -1,4 +1,3 @@
-import { ChatSession, GenerativeModel, GoogleGenerativeAI } from '@google/generative-ai';
 import { Inject, Injectable } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import { InjectModel } from '@nestjs/mongoose';
@@ -6,55 +5,45 @@ import { Model } from 'mongoose';
 import { ConversationHistory } from 'src/chat_history/chat_history.schema';
 import { PromptDTO } from './text-generate.dto';
 import { PromptTemplate } from "@langchain/core/prompts";
+import { GoogleGenAI } from "@google/genai";
+
 @Injectable()
 export class TextGenerateService {
-    model: GenerativeModel;
-    chat: ChatSession;
+    private ai: GoogleGenAI;
 
-    constructor(@Inject(ConfigService) private configService: ConfigService,
-        @InjectModel('ConversationHistory') private conversationModel: Model<ConversationHistory>,  // Inject model
-    ) { }
+    constructor(
+        @Inject(ConfigService) private configService: ConfigService,
+        @InjectModel('ConversationHistory') private conversationModel: Model<ConversationHistory>,
+    ) {
+        this.ai = new GoogleGenAI({
+            apiKey: this.configService.get('API_KEY')
+        });
+    }
 
     private chatHistory = {
         chatId: "",
-        chatConversation:
-            [
-                {
-                    role: "user",
-                    parts: [{ text: "hi" }],
-                },
-                {
-                    role: "model",
-                    parts: [{ text: "Great to meet you. What would you like to know?" }],
-                },
-            ]
+        chatConversation: []
     };
 
-    private getApiKey() {
-        return this.configService.get('API_KEY');
+    // Keep your getModel for easy updates
+    getModel() {
+        return "gemini-2.5-flash";
     }
 
-    initializeModel() {
-        const genAI = new GoogleGenerativeAI(this.getApiKey());
-        this.model = genAI.getGenerativeModel({ model: "gemini-1.5-flash" });
-    }
-
-    async initializeChatting(promptObj: PromptDTO, tokenObj:any) {
-        this.initializeModel();
+    async initializeChatting(promptObj: PromptDTO, tokenObj: any) {
         this.chatHistory.chatId = promptObj.chatId;
 
-        //fetch chat history for a particular chatId from DB and then pass it to the history parameter of the model so that it gets trained on the history
         let chatById: any = await this.getChatById(promptObj.chatId);
         this.chatHistory.chatConversation = [];
-        this.getTitleForConversation(promptObj)
+
         if (chatById) {
+            // Your existing logic for filtering history remains untouched
             chatById.messages.forEach(element => {
                 const filteredParts = element.parts.map(part => {
-                    const { _id, ...rest } = part; // Exclude the 'id' key
+                    const { _id, ...rest } = part;
                     return rest;
                 });
 
-                // Push the filtered data to chatConversation
                 this.chatHistory.chatConversation.push({
                     role: element.role,
                     parts: filteredParts
@@ -75,42 +64,83 @@ export class TextGenerateService {
                 console.error('Error during create:', error);
             }
         }
-        this.chat = this.model.startChat({ history: this.chatHistory.chatConversation, generationConfig: { maxOutputTokens: null }, });
+
+        // Logic routing
         if (promptObj?.imgPrompt) {
             return await this.generateFromMultimodal(promptObj);
-        }
-        else {
+        } else {
             return await this.generateFromText(promptObj);
         }
     }
 
     async generateFromText(promptObj: PromptDTO) {
-        const result = await this.chat.sendMessage(promptObj.prompt);
-        const response = await result.response;
+        const response = await this.ai.models.generateContent({
+            model: this.getModel(),
+            contents: [
+                ...this.chatHistory.chatConversation,
+                { role: "user", parts: [{ text: promptObj.prompt }] }
+            ]
+        });
 
-        let generatedText = {
-            text: response.text()
+        const generatedText = response.text;
+
+        this.updateMessages(promptObj.chatId, promptObj.prompt, promptObj.imgPrompt, generatedText);
+        return { text: generatedText };
+    }
+
+    private getMimeType(base64: string): string {
+        const signatures: { [key: string]: string } = {
+            "iVBORw0KGgo": "image/png",
+            "/9j/": "image/jpeg",
+            "UklGR": "image/webp",
+            "JVBERi0": "application/pdf",
+            "AAAACmZ0eXBoZWlj": "image/heic",
+            "AAAACmZ0eXBoZWlm": "image/heif"
+        };
+
+        for (const sign in signatures) {
+            if (base64.startsWith(sign)) {
+                return signatures[sign];
+            }
         }
-        this.updateMessages(promptObj.chatId, promptObj.prompt, promptObj.imgPrompt, generatedText.text);
-        return generatedText;
+
+        // Default to jpeg if no signature matches
+        return "image/jpeg";
     }
 
     async generateFromMultimodal(promptObj: PromptDTO) {
+        // Extract pure base64 (removes data:image/png;base64, etc.)
+        const base64Data = promptObj.imgPrompt.includes(',')
+            ? promptObj.imgPrompt.split(',')[1]
+            : promptObj.imgPrompt;
 
-        const imageParts = {
-            inlineData: {
-                data: promptObj.imgPrompt, mimeType: "image/jpg"
-            }
-        };
-        const result = await this.model.generateContent([promptObj.prompt, imageParts]);
-        const response = await result.response;
-        this.chatHistory.chatConversation.push({ role: "user", parts: [{ text: promptObj.prompt }, { text: imageParts.inlineData.data }] });
-        this.chatHistory.chatConversation.push({ role: "model", parts: [{ text: response.text() }] });
-        let generatedText = {
-            text: response.text()
-        }
-        this.updateMessages(promptObj.chatId, promptObj.prompt, promptObj.imgPrompt, generatedText.text);
-        return generatedText;
+        //  Detect the MIME type dynamically
+        const detectedMime = this.getMimeType(base64Data);
+
+        // Request with the specific model (gemini-3-flash-preview)
+        const response = await this.ai.models.generateContent({
+            model: this.getModel(),
+            contents: [
+                ...this.chatHistory.chatConversation,
+                {
+                    role: "user",
+                    parts: [
+                        { text: promptObj.prompt },
+                        {
+                            inlineData: {
+                                data: base64Data,
+                                mimeType: detectedMime
+                            }
+                        }
+                    ]
+                }
+            ]
+        });
+
+        const generatedText = response.text || "I couldn't analyze this file.";
+        this.updateMessages(promptObj.chatId, promptObj.prompt, promptObj.imgPrompt, generatedText);
+
+        return { text: generatedText };
     }
 
     async getTitleForConversation(promptObj: PromptDTO) {
@@ -120,15 +150,16 @@ export class TextGenerateService {
         const formattedPrompt = await promptTemplate.format({
             prompt: promptObj.prompt
         });
-        this.initializeModel();
-        this.chat = this.model.startChat({ history: [], generationConfig: { maxOutputTokens: null }, });
-        const result = await this.chat.sendMessage(formattedPrompt);
-        const response = await result.response;
 
-        let generatedText = {
-            text: await response.text()
-        };
-        return generatedText.text;
+        const response = await this.ai.models.generateContent({
+            model: this.getModel(),
+            contents: [{ role: "user", parts: [{ text: formattedPrompt }] }],
+            config: {
+                temperature: 0.3 // Low temperature for consistent titles
+            }
+        });
+
+        return response.text || "New Conversation";
     }
 
     async updateMessages(chatId: string, textPrompt: string, imgPrompt: string, generatedText: string) {
@@ -156,7 +187,7 @@ export class TextGenerateService {
     }
 
 
-    async getChatHistoryList(tokenObj:any): Promise<any> {
+    async getChatHistoryList(tokenObj: any): Promise<any> {
         return (await this.conversationModel.find({ userId: tokenObj.email }).sort({ createdAt: -1 }).lean().exec());
     }
 
@@ -165,11 +196,6 @@ export class TextGenerateService {
         return chat;
     }
 
-    //call this func only when we reload page
-    async getChatHistory() {
-        const chatHistory = await this.chat.getHistory();
-        return chatHistory;
-    }
 
 }
 
