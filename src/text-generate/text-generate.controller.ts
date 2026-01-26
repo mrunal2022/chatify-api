@@ -11,7 +11,6 @@ export class TextGenerateController {
 	constructor(private textGenerateService: TextGenerateService) { }
 
 	@Post('/text-generate-from-multimodal')
-	@Header('Content-Type', 'text/plain')
 	@ApiTags('generate text from text/image input from gemini api')
 	@ApiResponse({ status: 200, description: 'Data Fetched Successfully' })
 	@ApiResponse({ status: 400, description: 'Bad Request' })
@@ -31,7 +30,6 @@ export class TextGenerateController {
 	}
 
 	@Get('/getChatHistoryList')
-	@Header('Content-Type', 'application/json')
 	@ApiTags('Get conversation history list')
 	@ApiResponse({ status: 200, description: 'Data Fetched Successfully' })
 	@ApiResponse({ status: 400, description: 'Bad Request' })
@@ -44,22 +42,8 @@ export class TextGenerateController {
 		}
 	}
 
-	@Get('/getChatHistoryGemini')
-	@Header('Content-Type', 'application/json')
-	@ApiTags('Get chat history gemini')
-	@ApiResponse({ status: 200, description: 'Data Fetched Successfully' })
-	@ApiResponse({ status: 400, description: 'Bad Request' })
-	@ApiResponse({ status: 401, description: 'Unauthorized' })
-	async getChatHistory(): Promise<any> {
-		try {
-			return await this.textGenerateService.getChatHistory();
-		} catch (error) {
-			throw new BadRequestException(error.detail);
-		}
-	}
 
 	@Get('/getChatByChatId')
-	@Header('Content-Type', 'application/json')
 	@ApiTags('Get chat by id')
 	@ApiResponse({ status: 200, description: 'Data Fetched Successfully' })
 	@ApiResponse({ status: 400, description: 'Bad Request' })
